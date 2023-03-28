@@ -51,7 +51,7 @@ select distinct C.CompanyName, Ctg.CategoryName
     inner join [Order Details] Od on O.OrderID = Od.OrderID
     inner join Products P on P.ProductID = Od.ProductID
     inner join Categories Ctg on Ctg.CategoryID = P.CategoryID
-     where Ctg.CategoryName='Confections' and year(O.OrderDate)=1997
+     where Ctg.CategoryName='Confections' and year(O.OrderDate)=1997;
 
 
 --  Wybierz nazwy i numery telefonów klientów, którzy w 1997 nie kupowali produków z kategorii ‘Confections’
