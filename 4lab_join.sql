@@ -397,7 +397,7 @@ select distinct E.FirstName, E.LastName, E.EmployeeID, cast(sum(Od.UnitPrice*Od.
     inner join [Order Details] Od on O.OrderID = Od.OrderID
     inner join Employees E on E.EmployeeID = O.EmployeeID
     left outer join Employees as Ep on E.EmployeeID = Ep.ReportsTo
-            where Ep.FirstName is not null
+            where Ep.EmployeeID is not null
     group by E.FirstName, E.LastName, E.EmployeeID, Ep.EmployeeID
 --     order by sum(Od.UnitPrice*Od.Quantity*(1-Od.Discount));
 
@@ -414,7 +414,7 @@ select E.FirstName, E.LastName, E.EmployeeID, cast(sum(Od.UnitPrice*Od.Quantity*
     inner join [Order Details] Od on O.OrderID = Od.OrderID
     inner join Employees E on E.EmployeeID = O.EmployeeID
     left outer join Employees as Ep on E.EmployeeID = Ep.ReportsTo
-            where Ep.FirstName is null
+            where Ep.EmployeeID is null
     group by E.FirstName, E.LastName, E.EmployeeID
     order by sum(Od.UnitPrice*Od.Quantity*(1-Od.Discount));
 

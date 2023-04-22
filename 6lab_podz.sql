@@ -17,14 +17,16 @@ select distinct C.CompanyName, C.Phone
                                         where exists (select * from dbo.Shippers as S
                                                             where S.ShipperID = O.ShipVia and
                                                                 S.CompanyName='United Package' and
-                                                                  year(O.OrderDate)=1997 ))
+                                                                  year(O.ShippedDate)=1997 ))
 
 select distinct C.CompanyName, C.Phone
     from dbo.Customers as C
         where C.CustomerID in (select O.CustomerID
                                    from dbo.Orders as O
                                         where O.ShipVia in (select S.ShipperID from dbo.Shippers as S
-                                                            where S.CompanyName='United Package' and year(O.OrderDate)=1997 ))
+                                                            where S.CompanyName='United Package' and year(O.ShippedDate)=1997 ))
+
+
 select distinct C.CompanyName, C.Phone
     from dbo.Customers as C
     inner join dbo.Orders O on C.CustomerID = O.CustomerID
@@ -258,8 +260,8 @@ select T.ProductName, T.ProductID
               inner join dbo.Orders O on O.OrderID = Od.OrderID
               inner join dbo.Products P on P.ProductID = Od.ProductID
                 group by P.ProductName, P.ProductID
-                having count(O.CustomerID) > 20) as T
-    order by T.ProductName
+                having count( O.CustomerID) > 20) as T
+    order by T.ProductID;
 
 -- To co jest poniżej daje identyczny rezultat, co jest dla mnie trochę nielogiczne, bo to jest de facto fragment
 --          przedstawionego rozwiązania
@@ -268,7 +270,7 @@ select P.ProductName, P.ProductID
               inner join dbo.Orders O on O.OrderID = Od.OrderID
               inner join dbo.Products P on P.ProductID = Od.ProductID
                 group by P.ProductName, P.ProductID
-                having count(O.CustomerID) > 20
+                having count(distinct O.CustomerID) > 20
                 order by P.ProductName
 
 -- Sprawdzenie --
@@ -281,12 +283,12 @@ select P.ProductName, P.ProductID, count(C.CustomerID) as CusSum
     having count(*) > 20
     order by P.ProductName
 
-select distinct P.ProductName, count(*) as CusSum
+select distinct P.ProductName, P.ProductID, count(*) as CusSum
     from dbo.Products as P
     inner join dbo.[Order Details] Od on P.ProductID = Od.ProductID
     inner join dbo.Orders O on O.OrderID = Od.OrderID
     inner join Customers C on O.CustomerID = C.CustomerID
-    group by P.ProductName
+    group by P.ProductName, P.ProductID
     order by P.ProductName
 
 select count(*) from dbo.Products;
@@ -299,7 +301,42 @@ select ProductName, COUNT(CustomerID) AS Ile
     join Products as pr on pr.ProductID = od.ProductID
     join orders as o on o.orderid = od.orderid
     group by ProductName
-    order by ProductName
+    having count(CustomerID) > 20
+    order by ProductName;
+
+
+select cast(OrderDate as varchar)
+    from Orders;
+
+select datediff(year, OrderDate, getdate())
+    from dbo.Orders;
+
+select OrderDate
+    from Orders;
+
+
+-- Wersja Natalii:
+select T.ProductID
+    from (
+    select distinct OD.ProductID, CustomerID
+    from [Order Details] as OD
+    inner join Orders O
+        on OD.OrderID = O.OrderID
+    ) as T
+group by T.ProductID
+
+EXCEPT
+select R.ProductID
+    from (select P.ProductName, P.ProductID
+              from dbo.[Order Details] as Od
+              inner join dbo.Orders O on O.OrderID = Od.OrderID
+              inner join dbo.Products P on P.ProductID = Od.ProductID
+                group by P.ProductName, P.ProductID
+    having count(O.CustomerID) > 20) as R;
+
+
+
+having count(T.ProductID) > 20;
 
 -- Zła wersja:
 select P.ProductName, P.ProductID, (select count(*)
@@ -348,6 +385,13 @@ from (select E.FirstName, E.LastName, sum(O.Freight) as TotalValue
                inner join Orders O on E.EmployeeID = O.EmployeeID
       group by E.FirstName, E.LastName) as T
 order by T.FirstName;
+
+with T as ( select E.FirstName, E.LastName, sum(O.Freight) as TotalValue
+      from dbo.Employees as E
+               inner join Orders O on E.EmployeeID = O.EmployeeID
+      group by E.FirstName, E.LastName )
+select T.FirstName, T.LastName, T.TotalValue from T
+order by T.FirstName
 
 select E.FirstName, E.LastName, sum(Od.UnitPrice*Od.Quantity*(1-Od.Discount)) as sum
     from Orders as O
@@ -434,7 +478,7 @@ select E.FirstName, E.LastName, (select sum(Od.UnitPrice * Od.Quantity * (1 - Od
                                     from Orders as O
                                     inner join dbo.[Order Details] Od on O.OrderID = Od.OrderID
                                         where O.EmployeeID = E.EmployeeID) + (select sum(O.Freight)
-                                                                                from Orders as O
+                                                                                 from Orders as O
                                                                                     where O.EmployeeID = E.EmployeeID) as TotalValue
     from dbo.Employees as E
         where E.EmployeeID in (select Ep.ReportsTo
@@ -494,4 +538,34 @@ select E.FirstName, E.LastName, (select sum(Od.UnitPrice * Od.Quantity * (1 - Od
     order by E.FirstName
 
 
+-- Podaj zamówienia, w których wszystkie pozycje były ze zniżką
+select O.OrderID
+    from dbo.Orders as O
+        where (select count(Od.OrderID)
+                from dbo.[Order Details] as Od
+                    where Od.OrderID = O.OrderID and Od.Discount=0) = 0
 
+select * from dbo.[Order Details]
+
+-- Podaj zamówienia, w których wszystkie pozycje były bez zniżki
+select O.OrderID
+    from dbo.Orders as O
+        where (select count(Od.OrderID)
+                from dbo.[Order Details] as Od
+                    where Od.OrderID = O.OrderID and Od.Discount!=0) = 0
+
+
+-- Podaj zamówienia, w których co najmniej jedna pozycja była bez zniżki
+select O.OrderID
+    from dbo.Orders as O
+        where (select count(Od.OrderID)
+                from dbo.[Order Details] as Od
+                    where Od.OrderID = O.OrderID and Od.Discount=0) > 0
+
+
+-- Podaj zamówienia, w których co najmniej jedna pozycja była ze zniżką
+select O.OrderID
+    from dbo.Orders as O
+        where (select count(Od.OrderID)
+                from dbo.[Order Details] as Od
+                    where Od.OrderID = O.OrderID and Od.Discount!=0) > 0
